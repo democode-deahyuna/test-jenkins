@@ -1,32 +1,26 @@
 #!/bin/bash
-sudo apt update -y
-sudo apt upgrade -y
+sudo apt update
+sudo apt upgrade
 
 echo " Install docker "
-
 sudo apt install docker.io -y
 systemctl enable --now docker
 
 echo " Install packages apt - transport - https - curl "
-
 sudo apt install apt-transport-https curl -y
 
 echo " Add key "
-
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
 
 echo " Add the Kubernetes repository as a package source "
-
 echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" >> ~/kubernetes.list
 mv ~/kubernetes.list /etc/apt/sources.list.d
 sudo apt update -y
 
 echo " Install Kubernetes tools "
-
-sudo apt-get install -y kubelet kubeadm kubectl kubernetes-cni
+apt-get install -y kubelet kubeadm kubectl kubernetes-cni
 
 echo " Disable swap memory "
-
 swapoff -a
 
 echo " Letting Iptables See Bridged Traffic "
@@ -39,8 +33,6 @@ sysctl net.bridge.bridge-nf-call-iptables=1
 
 echo " Changing Docker Cgroup Driver "
 echo " Update the cgroupdriver "
-mkdir /etc/docker
-cd /etc/docker
 cat <<EOF | sudo tee /etc/docker/daemon.json
 { "exec-opts": ["native.cgroupdriver=systemd"],
 "log-driver": "json-file",
@@ -55,38 +47,6 @@ sudo systemctl enable docker
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 
-echo " Initializing the Kubernetes Master Node "
-sudo kubeadm init --pod-network-cidr=10.244.0.0/16
-echo " You can see the kubeadm join command and a unique token that you will run on the worker node, copy-paste this command as you will use it later in the worker node"
-echo " You should run as a regular user on the master node before you start to use the cluster "
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
 echo " Deploying a Pod Network "
 sudo ufw allow 6443
 sudo ufw allow 6443/tcp
-
-echo " Deploy the pod network on the master node "
-kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
-kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/k8s-manifests/kube-flannel-rbac.yml
-
-echo " Show all services status as running "
-kubectl get pods --all-namespaces
-
-echo " View the health of the components "
-kubectl get componentstatus
-
-echo " Confirm that your worker node has joined the cluster "
-kubectl get nodes
-
-echo " Deploying an Application to the Kubernetes Cluster "
-echo " Create a Kubernetes deployment for Nginx "
-kubectl create deployment nginx --image=nginx
-echo " View the created deployment "
-kubectl describe deployment nginx
-echo " To make the nginx service accessible via the internet "
-kubectl create service nodeport nginx --tcp=80:80
-
-echo " You can get the current services "
-kubectl get svc
